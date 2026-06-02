@@ -1,0 +1,23 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:edificio_app_test;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+
+app:
+  security:
+    admin-username: admin
+    admin-password: admin123
+    admin-email: admin@edificio.local
+    jwt-secret: edificio-app-development-secret-key-32
+    jwt-expiration-minutes: 120
+    refresh-token-expiration-days: 7
+    login-rate-limit:
+      max-attempts: 100
+      window-minutes: 1

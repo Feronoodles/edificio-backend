@@ -1,0 +1,2 @@
+-- Intentionally left empty.
+-- The UUID user id change was folded into V2 before the first production deployment.
