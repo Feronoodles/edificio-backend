@@ -47,17 +47,23 @@ public class ResidentServiceImpl implements ResidentService {
         var resident = new Resident();
         apply(request, resident);
         resident.setCreatedBy(auditService.currentUsername());
-        return ResidentResponse.from(residentRepository.save(resident));
+        var saved = residentRepository.save(resident);
+        syncApartmentOccupancy(saved.getApartment().getId());
+        return ResidentResponse.from(saved);
     }
 
     @Override
     @Transactional
     public ResidentResponse update(Long id, ResidentRequest request) {
         var resident = findResident(id);
+        var previousApartmentId = resident.getApartment().getId();
         apply(request, resident);
         resident.setUpdatedBy(auditService.currentUsername());
         resident.setUpdatedAt(Instant.now());
-        return ResidentResponse.from(residentRepository.save(resident));
+        var saved = residentRepository.save(resident);
+        syncApartmentOccupancy(previousApartmentId);
+        syncApartmentOccupancy(saved.getApartment().getId());
+        return ResidentResponse.from(saved);
     }
 
     @Override
@@ -69,6 +75,7 @@ public class ResidentServiceImpl implements ResidentService {
         resident.setDeletedAt(Instant.now());
         resident.setDocumentNumber(deletedValue("DEL-", resident.getId(), 30));
         residentRepository.save(resident);
+        syncApartmentOccupancy(resident.getApartment().getId());
     }
 
     private Resident findResident(Long id) {
@@ -94,5 +101,12 @@ public class ResidentServiceImpl implements ResidentService {
     private String deletedValue(String prefix, Long id, int maxLength) {
         var value = prefix + id;
         return value.length() <= maxLength ? value : value.substring(0, maxLength);
+    }
+
+    private void syncApartmentOccupancy(Long apartmentId) {
+        var apartment = apartmentRepository.findById(apartmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Departamento no encontrado"));
+        apartment.setOccupied(residentRepository.existsByApartmentIdAndActiveTrueAndDeletedFalse(apartmentId));
+        apartmentRepository.save(apartment);
     }
 }

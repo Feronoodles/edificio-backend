@@ -1,6 +1,7 @@
 package com.edificio.app.api.dto;
 
 import com.edificio.app.domain.Payment;
+import com.edificio.app.domain.PaymentMethod;
 import com.edificio.app.domain.PaymentStatus;
 
 import java.math.BigDecimal;
@@ -12,8 +13,11 @@ public record PaymentResponse(
         Long apartmentId,
         String concept,
         BigDecimal amount,
+        BigDecimal paidAmount,
         LocalDate dueDate,
         LocalDate paidAt,
+        PaymentMethod paymentMethod,
+        String reference,
         PaymentStatus status,
         String createdBy,
         Instant createdAt,
@@ -26,8 +30,11 @@ public record PaymentResponse(
                 payment.getApartment().getId(),
                 payment.getConcept(),
                 payment.getAmount(),
+                payment.getPaidAmount(),
                 payment.getDueDate(),
                 payment.getPaidAt(),
+                payment.getPaymentMethod(),
+                payment.getReference(),
                 payment.getStatus(),
                 payment.getCreatedBy(),
                 payment.getCreatedAt(),

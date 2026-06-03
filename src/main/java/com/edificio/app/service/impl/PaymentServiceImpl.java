@@ -14,7 +14,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 
 @Service
 @RequiredArgsConstructor
@@ -89,8 +91,35 @@ public class PaymentServiceImpl implements PaymentService {
         payment.setApartment(apartment);
         payment.setConcept(request.concept());
         payment.setAmount(request.amount());
+        payment.setPaidAmount(normalizePaidAmount(request));
         payment.setDueDate(request.dueDate());
-        payment.setPaidAt(request.paidAt());
+        payment.setPaidAt(normalizePaidAt(request));
+        payment.setPaymentMethod(request.paymentMethod());
+        payment.setReference(request.reference());
         payment.setStatus(request.status());
+    }
+
+    private BigDecimal normalizePaidAmount(PaymentRequest request) {
+        var paidAmount = request.paidAmount() == null ? BigDecimal.ZERO : request.paidAmount();
+        if (request.status() == PaymentStatus.PAID && paidAmount.compareTo(BigDecimal.ZERO) == 0) {
+            paidAmount = request.amount();
+        }
+        if (paidAmount.compareTo(request.amount()) > 0) {
+            throw new IllegalArgumentException("El monto pagado no puede ser mayor al monto del pago");
+        }
+        if (request.status() == PaymentStatus.PAID && paidAmount.compareTo(request.amount()) < 0) {
+            throw new IllegalArgumentException("Para marcar el pago como pagado, el monto pagado debe cubrir el total");
+        }
+        return paidAmount;
+    }
+
+    private LocalDate normalizePaidAt(PaymentRequest request) {
+        if (request.status() == PaymentStatus.PAID && request.paidAt() == null) {
+            return LocalDate.now();
+        }
+        if (request.status() != PaymentStatus.PAID) {
+            return null;
+        }
+        return request.paidAt();
     }
 }

@@ -12,4 +12,6 @@ public interface ResidentRepository extends JpaRepository<Resident, Long> {
     List<Resident> findByApartmentIdAndDeletedFalse(Long apartmentId);
 
     long countByApartmentIdAndDeletedFalse(Long apartmentId);
+
+    boolean existsByApartmentIdAndActiveTrueAndDeletedFalse(Long apartmentId);
 }

@@ -40,10 +40,20 @@ public class Payment {
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal amount;
 
+    @Column(nullable = false, precision = 10, scale = 2)
+    private BigDecimal paidAmount = BigDecimal.ZERO;
+
     @Column(nullable = false)
     private LocalDate dueDate;
 
     private LocalDate paidAt;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 30)
+    private PaymentMethod paymentMethod;
+
+    @Column(length = 80)
+    private String reference;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
