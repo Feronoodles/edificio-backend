@@ -48,6 +48,8 @@ Copy-Item .env.example .env
 
 ## Ejecutar
 
+Por defecto la aplicacion usa el perfil `dev`, definido para desarrollo local.
+
 ```bash
 mvn spring-boot:run
 ```
@@ -201,3 +203,68 @@ http://localhost:5173
 ```
 
 El frontend usa proxy para enviar `/api/**` al backend en `http://localhost:8080`, asi que no necesitas configurar CORS durante desarrollo.
+
+## Preparacion para produccion
+
+La configuracion esta separada por perfiles:
+
+```text
+application.yml       configuracion comun; usa dev por defecto
+application-dev.yml   desarrollo local
+application-prod.yml  produccion estricta
+```
+
+El perfil `prod` no usa secretos por defecto: si falta una variable importante, la app debe fallar al arrancar. Es intencional.
+
+Variables minimas para produccion:
+
+```text
+SPRING_PROFILES_ACTIVE=prod
+DB_USERNAME=edificio_user
+DB_PASSWORD=usa-un-password-fuerte
+APP_ADMIN_USERNAME=admin
+APP_ADMIN_PASSWORD=usa-un-password-fuerte
+APP_ADMIN_EMAIL=admin@tu-dominio.com
+APP_JWT_SECRET=usa-un-secreto-largo-generado
+APP_HTTP_PORT=80
+```
+
+Para generar un secreto JWT fuerte en PowerShell:
+
+```powershell
+[Convert]::ToBase64String((1..64 | ForEach-Object { Get-Random -Maximum 256 }))
+```
+
+Para probar el build antes de desplegar:
+
+```powershell
+mvn test
+cd frontend
+npm.cmd run build
+```
+
+En Windows, si `npm` o `npx` fallan por politicas de ejecucion de PowerShell, usa `npm.cmd` o `npx.cmd`.
+
+Para validar la configuracion Docker sin levantar servicios:
+
+```powershell
+docker compose -f docker-compose.prod.yml config
+```
+
+Para levantar el stack de produccion localmente, crea un `.env` basado en `.env.example` y ejecuta:
+
+```powershell
+docker compose -f docker-compose.prod.yml up --build
+```
+
+El frontend queda publicado en `http://localhost` por defecto y Nginx envia `/api/**` al backend. El backend expone `/actuator/health` para healthchecks. Swagger queda deshabilitado en el perfil `prod`.
+
+Este compose usa el volumen `edificio_app_prod_postgres_data` para separar la base de datos de prueba de produccion local de cualquier PostgreSQL de desarrollo. Las variables `POSTGRES_USER` y `POSTGRES_PASSWORD` solo se aplican cuando el volumen se crea por primera vez; si cambias credenciales despues, crea un volumen nuevo o elimina el volumen anterior solo si estas seguro de que no necesitas esos datos.
+
+Comandos utiles:
+
+```powershell
+docker compose -f docker-compose.prod.yml ps
+docker compose -f docker-compose.prod.yml logs backend
+docker compose -f docker-compose.prod.yml down
+```

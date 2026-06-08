@@ -1,0 +1,8 @@
+{
+	email {$APP_ADMIN_EMAIL}
+}
+
+{$APP_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy backend:8080
+}
