@@ -563,35 +563,44 @@ En servidor real:
 
 ## 20. Preparacion de servidor Linux
 
-Para servidor real usamos:
+Para servidor real puedes usar una de estas variantes:
 
 ```text
-docker-compose.server.yml
-server/Caddyfile
+docker-compose.server-nginx.yml  si el VPS ya tiene Nginx instalado
+docker-compose.server.yml        si quieres usar Caddy como proxy del proyecto
 .env.server.example
 ```
+
+Como tu VPS ya tiene Nginx para otros proyectos, usa:
+
+```text
+docker-compose.server-nginx.yml
+```
+
+No uses Caddy en ese VPS, porque Caddy intentaria ocupar puertos `80` y `443`, que ya maneja Nginx.
 
 La diferencia con `docker-compose.prod.yml` es esta:
 
 - `docker-compose.prod.yml`: laboratorio local full-stack en tu maquina.
-- `docker-compose.server.yml`: despliegue backend/API en un VPS Linux con HTTPS. Este es el archivo que usaras en el VPS del backend.
+- `docker-compose.server-nginx.yml`: despliegue backend/API en un VPS Linux que ya tiene Nginx.
+- `docker-compose.server.yml`: alternativa si el proyecto usara Caddy propio.
 
-Servicios del compose de servidor:
+Servicios del compose con Nginx externo:
 
 ```text
-caddy     publica HTTP/HTTPS y reenvia trafico al backend
 backend   API Spring Boot con perfil prod
 postgres  base de datos PostgreSQL privada dentro de Docker
 ```
 
 No incluye frontend porque el frontend vive en otro repositorio y se despliega por separado.
 
-Caddy publica:
+El backend publica solo en localhost del VPS:
 
 ```text
-80
-443
+127.0.0.1:18080 -> backend:8080
 ```
+
+Eso significa que internet no entra directo al backend. Nginx recibe el trafico HTTPS y lo reenvia a `127.0.0.1:18080`.
 
 PostgreSQL no publica el puerto `5432`, porque no debe quedar abierto a internet.
 
@@ -608,6 +617,7 @@ Variables principales:
 ```text
 APP_DOMAIN=api.tu-dominio.com
 APP_CORS_ALLOWED_ORIGINS=https://tu-frontend.com
+BACKEND_HOST_PORT=18080
 DB_USERNAME=edificio_user
 DB_PASSWORD=...
 APP_ADMIN_USERNAME=admin
@@ -640,13 +650,13 @@ Si frontend y backend viven en dominios distintos, CORS importa. Si no configura
 En Windows, solo para revisar configuracion:
 
 ```powershell
-docker compose --env-file .env.server.example -f docker-compose.server.yml config
+docker compose --env-file .env.server.example -f docker-compose.server-nginx.yml config
 ```
 
 En Linux:
 
 ```bash
-docker compose --env-file .env -f docker-compose.server.yml config
+docker compose --env-file .env -f docker-compose.server-nginx.yml config
 ```
 
 ### Levantar en servidor Linux
@@ -654,7 +664,7 @@ docker compose --env-file .env -f docker-compose.server.yml config
 En el VPS:
 
 ```bash
-docker compose --env-file .env -f docker-compose.server.yml up --build -d
+docker compose --env-file .env -f docker-compose.server-nginx.yml up --build -d
 ```
 
 No uses `docker-compose.prod.yml` en el VPS si este repo no contiene frontend.
@@ -662,40 +672,52 @@ No uses `docker-compose.prod.yml` en el VPS si este repo no contiene frontend.
 Ver estado:
 
 ```bash
-docker compose --env-file .env -f docker-compose.server.yml ps
+docker compose --env-file .env -f docker-compose.server-nginx.yml ps
 ```
 
 Ver logs del backend:
 
 ```bash
-docker compose --env-file .env -f docker-compose.server.yml logs backend
+docker compose --env-file .env -f docker-compose.server-nginx.yml logs backend
 ```
 
-Ver logs de Caddy:
+### Configurar Nginx del VPS
 
-```bash
-docker compose --env-file .env -f docker-compose.server.yml logs caddy
-```
-
-### Que hace Caddy
-
-`server/Caddyfile` tiene:
+Plantilla:
 
 ```text
-{$APP_DOMAIN} {
-  encode zstd gzip
-  reverse_proxy backend:8080
+server/nginx-edificio-api.conf.example
+```
+
+Ejemplo Nginx:
+
+```nginx
+server {
+    server_name api.tu-dominio.com;
+
+    location / {
+        proxy_pass http://127.0.0.1:18080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
 }
 ```
 
 Eso significa:
 
-- Escucha el dominio configurado en `APP_DOMAIN`.
-- Pide certificado HTTPS automaticamente.
-- Redirige trafico al backend.
-- Comprime respuestas cuando corresponde.
+- Nginx escucha `api.tu-dominio.com`.
+- Reenvia al backend publicado en `127.0.0.1:18080`.
+- Mantiene headers importantes para que el backend sepa host, IP real y protocolo.
 
-Para que HTTPS automatico funcione, el dominio debe apuntar al servidor y los puertos 80 y 443 deben estar abiertos.
+Luego normalmente activas HTTPS con Certbot:
+
+```bash
+sudo certbot --nginx -d api.tu-dominio.com
+```
+
+Para que HTTPS funcione, el dominio debe apuntar al servidor y Nginx debe tener abiertos los puertos 80 y 443.
 
 ### Smoke test en Linux
 
