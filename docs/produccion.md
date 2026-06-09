@@ -790,3 +790,341 @@ BACKUP_RETENTION_DAYS=30 bash ./scripts/backup-postgres.sh
 Importante:
 
 El cron guarda backups dentro del VPS. Eso protege contra errores de app o base, pero no contra perdida total del servidor. Mas adelante conviene copiar backups fuera del VPS, por ejemplo a otro servidor, almacenamiento S3 compatible, Google Drive, o descarga periodica local.
+
+## 21. Despliegue del frontend
+
+El frontend vive en otro repositorio:
+
+```text
+https://github.com/Feronoodles/edificio-frontend
+```
+
+La estrategia recomendada es:
+
+```text
+PC local: compila React/Vite y genera dist/
+VPS: Nginx sirve los archivos estaticos de dist/
+```
+
+Asi el VPS no necesita Node, npm ni pnpm para servir la app.
+
+### Dominios usados
+
+Con subdominios separados:
+
+```text
+Frontend: https://app.tu-dominio.com
+Backend:  https://api.tu-dominio.com
+```
+
+En el backend, el `.env` del VPS debe tener:
+
+```text
+APP_DOMAIN=api.tu-dominio.com
+APP_CORS_ALLOWED_ORIGINS=https://app.tu-dominio.com
+BACKEND_HOST_PORT=18080
+```
+
+En el frontend, al compilar, debes usar:
+
+```text
+VITE_API_BASE_URL=https://api.tu-dominio.com
+```
+
+No agregues `/api` al final. El codigo del frontend ya agrega rutas como `/api/auth/login`.
+
+Correcto:
+
+```text
+VITE_API_BASE_URL=https://api.tu-dominio.com
+```
+
+Incorrecto:
+
+```text
+VITE_API_BASE_URL=https://api.tu-dominio.com/api
+```
+
+### Actualizar el repo frontend local
+
+En tu PC local:
+
+```powershell
+cd C:\Users\quena\Desktop\proyectos\java\edificio-frontend
+git pull
+```
+
+Si Git dice que hay cambios locales que bloquearian el pull:
+
+```powershell
+git stash push -m "backup local frontend antes de pull" -- src/main.jsx src/styles.css
+git pull
+```
+
+Verificar commit esperado:
+
+```powershell
+git log -1 --oneline
+```
+
+Debe estar en un commit que incluya el uso de `VITE_API_BASE_URL`.
+
+Verificar que el codigo usa la variable:
+
+```powershell
+Select-String -Path .\src\main.jsx -Pattern "VITE_API_BASE_URL|API_BASE_URL|import.meta.env"
+```
+
+### Compilar frontend en Windows
+
+En PowerShell:
+
+```powershell
+cd C:\Users\quena\Desktop\proyectos\java\edificio-frontend
+Remove-Item -Recurse -Force .\dist -ErrorAction SilentlyContinue
+$env:VITE_API_BASE_URL="https://api.tu-dominio.com"
+npm.cmd ci
+npm.cmd audit --audit-level=moderate
+npm.cmd run build
+```
+
+Si ya tienes dependencias instaladas y solo estas recompilando:
+
+```powershell
+$env:VITE_API_BASE_URL="https://api.tu-dominio.com"
+npm.cmd run build
+```
+
+Verificar que la URL del API quedo dentro del build:
+
+```powershell
+Select-String -Path .\dist\assets\*.js -Pattern "https://api.tu-dominio.com"
+```
+
+Si no aparece nada, el build no tomo `VITE_API_BASE_URL`. Repite el build en la misma terminal donde configuraste la variable.
+
+### Subir dist al VPS
+
+Desde tu PC local:
+
+```powershell
+scp -r .\dist\* usuario@IP_DEL_VPS:/tmp/edificio-frontend-dist/
+```
+
+En el VPS:
+
+```bash
+sudo mkdir -p /var/www/edificio-frontend
+sudo rsync -av --delete /tmp/edificio-frontend-dist/ /var/www/edificio-frontend/
+rm -rf /tmp/edificio-frontend-dist
+sudo chown -R www-data:www-data /var/www/edificio-frontend
+sudo find /var/www/edificio-frontend -type d -exec chmod 755 {} \;
+sudo find /var/www/edificio-frontend -type f -exec chmod 644 {} \;
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+La carpeta debe quedar asi:
+
+```text
+/var/www/edificio-frontend/index.html
+/var/www/edificio-frontend/assets/
+```
+
+No debe quedar asi:
+
+```text
+/var/www/edificio-frontend/dist/index.html
+```
+
+### Configurar Nginx para el frontend
+
+Crear archivo:
+
+```bash
+sudo nano /etc/nginx/sites-available/edificio-frontend
+```
+
+Contenido:
+
+```nginx
+server {
+    server_name app.tu-dominio.com;
+
+    root /var/www/edificio-frontend;
+    index index.html;
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}
+```
+
+Activar sitio:
+
+```bash
+sudo ln -s /etc/nginx/sites-available/edificio-frontend /etc/nginx/sites-enabled/edificio-frontend
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+Activar HTTPS con Certbot:
+
+```bash
+sudo certbot --nginx -d app.tu-dominio.com
+```
+
+Probar:
+
+```bash
+curl -I https://app.tu-dominio.com
+```
+
+Respuesta esperada:
+
+```text
+HTTP/2 200
+```
+
+### Verificar login desde navegador
+
+Abrir:
+
+```text
+https://app.tu-dominio.com
+```
+
+En DevTools > Network, el login debe llamar a:
+
+```text
+https://api.tu-dominio.com/api/auth/login
+```
+
+No debe llamar a:
+
+```text
+https://app.tu-dominio.com/api/auth/login
+```
+
+Si llama al dominio del frontend, reconstruye el frontend con `VITE_API_BASE_URL` correcto y vuelve a subir `dist`.
+
+## 22. Errores comunes y diagnostico
+
+### Error 403 al cargar frontend
+
+Normalmente es Nginx sirviendo archivos estaticos.
+
+Revisar:
+
+```bash
+ls -la /var/www/edificio-frontend
+sudo tail -n 80 /var/log/nginx/error.log
+```
+
+Debe existir:
+
+```text
+index.html
+assets/
+```
+
+Corregir permisos:
+
+```bash
+sudo chown -R www-data:www-data /var/www/edificio-frontend
+sudo find /var/www/edificio-frontend -type d -exec chmod 755 {} \;
+sudo find /var/www/edificio-frontend -type f -exec chmod 644 {} \;
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+### Error 405 al hacer login
+
+Normalmente significa que el frontend esta llamando al dominio equivocado:
+
+```text
+https://app.tu-dominio.com/api/auth/login
+```
+
+Eso esta mal si el backend vive en:
+
+```text
+https://api.tu-dominio.com
+```
+
+Solucion:
+
+```powershell
+$env:VITE_API_BASE_URL="https://api.tu-dominio.com"
+npm.cmd run build
+```
+
+Luego subir otra vez `dist` al VPS.
+
+### Error CORS en navegador
+
+Revisar `.env` del backend en el VPS:
+
+```bash
+cat .env
+```
+
+Debe tener:
+
+```text
+APP_CORS_ALLOWED_ORIGINS=https://app.tu-dominio.com
+```
+
+Sin `/` al final.
+
+Luego reiniciar backend:
+
+```bash
+docker compose --env-file .env -f docker-compose.server-nginx.yml up --build -d
+```
+
+### Backend responde por curl pero frontend falla
+
+Probar API directamente:
+
+```bash
+curl -i https://api.tu-dominio.com/actuator/health
+curl -i https://api.tu-dominio.com/api/buildings
+```
+
+Esperado:
+
+```text
+/actuator/health -> 200
+/api/buildings   -> 401 sin token
+```
+
+Si eso funciona, el backend esta bien. El problema suele estar en build del frontend, CORS o Nginx frontend.
+
+## 23. Checklist final de produccion
+
+Backend:
+
+- `docker-compose.server-nginx.yml` levantado en VPS.
+- `postgres` healthy.
+- `backend` healthy.
+- `https://api.tu-dominio.com/actuator/health` devuelve `200`.
+- `https://api.tu-dominio.com/api/buildings` devuelve `401` sin token.
+- Login devuelve `accessToken` y `refreshToken`.
+- `APP_CORS_ALLOWED_ORIGINS` apunta al frontend.
+
+Frontend:
+
+- Build hecho con `VITE_API_BASE_URL=https://api.tu-dominio.com`.
+- `dist` copiado a `/var/www/edificio-frontend`.
+- Nginx frontend apunta a `/var/www/edificio-frontend`.
+- `https://app.tu-dominio.com` devuelve `200`.
+- Login desde navegador llama a `https://api.tu-dominio.com/api/auth/login`.
+
+Backups:
+
+- `bash ./scripts/backup-postgres.sh` genera backup.
+- `bash ./scripts/restore-check-postgres.sh` restaura en base de prueba.
+- Cron de backups instalado con `bash ./scripts/install-backup-cron.sh`.
+- `crontab -l` muestra la tarea.
+- `logs/backup-postgres.log` se revisa periodicamente.
