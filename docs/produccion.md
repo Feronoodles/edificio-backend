@@ -746,3 +746,47 @@ bash ./scripts/restore-check-postgres.sh
 Esto respalda/restaura la base PostgreSQL del contenedor Docker del servidor.
 
 Los scripts usan el servicio `postgres` de Docker Compose, no un nombre fijo de contenedor. Esto evita errores cuando Docker genera nombres distintos segun la carpeta del proyecto.
+
+### Automatizar backups diarios con cron
+
+En el VPS puedes instalar un backup diario:
+
+```bash
+bash ./scripts/install-backup-cron.sh
+```
+
+Por defecto:
+
+```text
+hora: 02:30
+retencion: 14 dias
+log: logs/backup-postgres.log
+```
+
+Puedes cambiar hora y retencion:
+
+```bash
+BACKUP_TIME=03:15 BACKUP_RETENTION_DAYS=30 bash ./scripts/install-backup-cron.sh
+```
+
+Ver tareas cron instaladas:
+
+```bash
+crontab -l
+```
+
+Ver logs del backup:
+
+```bash
+tail -n 80 logs/backup-postgres.log
+```
+
+Ejecutar backup manual con retencion:
+
+```bash
+BACKUP_RETENTION_DAYS=30 bash ./scripts/backup-postgres.sh
+```
+
+Importante:
+
+El cron guarda backups dentro del VPS. Eso protege contra errores de app o base, pero no contra perdida total del servidor. Mas adelante conviene copiar backups fuera del VPS, por ejemplo a otro servidor, almacenamiento S3 compatible, Google Drive, o descarga periodica local.
