@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-CONTAINER_NAME="${CONTAINER_NAME:-edificio_app-postgres-1}"
+COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.server-nginx.yml}"
+POSTGRES_SERVICE="${POSTGRES_SERVICE:-postgres}"
 DATABASE_NAME="${DATABASE_NAME:-edificio_app}"
 OUTPUT_DIR="${OUTPUT_DIR:-backups}"
 
@@ -29,9 +30,9 @@ backup_path="$ROOT_DIR/$OUTPUT_DIR/$DATABASE_NAME-$timestamp.sql"
 
 echo "Creando backup de $DATABASE_NAME en $backup_path"
 
-docker exec \
+docker compose -f "$COMPOSE_FILE" exec -T \
   -e "PGPASSWORD=$DB_PASSWORD" \
-  "$CONTAINER_NAME" \
+  "$POSTGRES_SERVICE" \
   pg_dump \
   -U "$DB_USERNAME" \
   -d "$DATABASE_NAME" \

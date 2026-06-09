@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-CONTAINER_NAME="${CONTAINER_NAME:-edificio_app-postgres-1}"
+COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.server-nginx.yml}"
+POSTGRES_SERVICE="${POSTGRES_SERVICE:-postgres}"
 MAIN_DATABASE_NAME="${MAIN_DATABASE_NAME:-edificio_app}"
 RESTORE_DATABASE_NAME="${RESTORE_DATABASE_NAME:-edificio_app_restore_check}"
 BACKUP_DIR="${BACKUP_DIR:-backups}"
@@ -46,9 +47,9 @@ fi
 psql_cmd() {
   local database="$1"
   local sql="$2"
-  docker exec \
+  docker compose -f "$COMPOSE_FILE" exec -T \
     -e "PGPASSWORD=$DB_PASSWORD" \
-    "$CONTAINER_NAME" \
+    "$POSTGRES_SERVICE" \
     psql \
     -v ON_ERROR_STOP=1 \
     -U "$DB_USERNAME" \
@@ -64,18 +65,17 @@ psql_cmd postgres "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE 
 psql_cmd postgres "DROP DATABASE IF EXISTS $RESTORE_DATABASE_NAME;"
 psql_cmd postgres "CREATE DATABASE $RESTORE_DATABASE_NAME;"
 
-docker exec \
-  -i \
+docker compose -f "$COMPOSE_FILE" exec -T \
   -e "PGPASSWORD=$DB_PASSWORD" \
-  "$CONTAINER_NAME" \
+  "$POSTGRES_SERVICE" \
   psql \
   -v ON_ERROR_STOP=1 \
   -U "$DB_USERNAME" \
   -d "$RESTORE_DATABASE_NAME" < "$BACKUP_PATH"
 
-table_count="$(docker exec \
+table_count="$(docker compose -f "$COMPOSE_FILE" exec -T \
   -e "PGPASSWORD=$DB_PASSWORD" \
-  "$CONTAINER_NAME" \
+  "$POSTGRES_SERVICE" \
   psql \
   -U "$DB_USERNAME" \
   -d "$RESTORE_DATABASE_NAME" \

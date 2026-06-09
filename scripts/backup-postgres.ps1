@@ -1,5 +1,6 @@
 param(
-    [string]$ContainerName = "edificio_app-postgres-1",
+    [string]$ComposeFile = "docker-compose.server-nginx.yml",
+    [string]$PostgresService = "postgres",
     [string]$DatabaseName = "edificio_app",
     [string]$OutputDir = "backups"
 )
@@ -42,9 +43,9 @@ $backupPath = Join-Path $backupDir "$DatabaseName-$timestamp.sql"
 
 Write-Host "Creando backup de $DatabaseName en $backupPath"
 
-$dump = docker exec `
+$dump = docker compose -f $ComposeFile exec -T `
     -e "PGPASSWORD=$($envVars["DB_PASSWORD"])" `
-    $ContainerName `
+    $PostgresService `
     pg_dump `
     -U $envVars["DB_USERNAME"] `
     -d $DatabaseName `

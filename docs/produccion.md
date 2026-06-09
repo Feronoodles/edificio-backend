@@ -744,3 +744,5 @@ bash ./scripts/restore-check-postgres.sh
 ```
 
 Esto respalda/restaura la base PostgreSQL del contenedor Docker del servidor.
+
+Los scripts usan el servicio `postgres` de Docker Compose, no un nombre fijo de contenedor. Esto evita errores cuando Docker genera nombres distintos segun la carpeta del proyecto.

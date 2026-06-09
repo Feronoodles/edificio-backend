@@ -1,6 +1,7 @@
 param(
     [string]$BackupPath,
-    [string]$ContainerName = "edificio_app-postgres-1",
+    [string]$ComposeFile = "docker-compose.server-nginx.yml",
+    [string]$PostgresService = "postgres",
     [string]$MainDatabaseName = "edificio_app",
     [string]$RestoreDatabaseName = "edificio_app_restore_check",
     [string]$BackupDir = "backups"
@@ -50,9 +51,9 @@ function Invoke-Postgres {
         [string]$Database = "postgres"
     )
 
-    docker exec `
+    docker compose -f $ComposeFile exec -T `
         -e "PGPASSWORD=$($script:EnvVars["DB_PASSWORD"])" `
-        $ContainerName `
+        $PostgresService `
         psql `
         -v ON_ERROR_STOP=1 `
         -U $script:EnvVars["DB_USERNAME"] `
@@ -102,10 +103,9 @@ Invoke-Postgres -Sql "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHE
 Invoke-Postgres -Sql "DROP DATABASE IF EXISTS $RestoreDatabaseName;"
 Invoke-Postgres -Sql "CREATE DATABASE $RestoreDatabaseName;"
 
-Get-Content -Path $BackupPath -Raw | docker exec `
-    -i `
+Get-Content -Path $BackupPath -Raw | docker compose -f $ComposeFile exec -T `
     -e "PGPASSWORD=$($script:EnvVars["DB_PASSWORD"])" `
-    $ContainerName `
+    $PostgresService `
     psql `
     -v ON_ERROR_STOP=1 `
     -U $script:EnvVars["DB_USERNAME"] `
@@ -115,9 +115,9 @@ if ($LASTEXITCODE -ne 0) {
     throw "La restauracion fallo con codigo $LASTEXITCODE."
 }
 
-$tableCount = docker exec `
+$tableCount = docker compose -f $ComposeFile exec -T `
     -e "PGPASSWORD=$($script:EnvVars["DB_PASSWORD"])" `
-    $ContainerName `
+    $PostgresService `
     psql `
     -U $script:EnvVars["DB_USERNAME"] `
     -d $RestoreDatabaseName `
