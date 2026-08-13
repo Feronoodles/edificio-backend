@@ -4,12 +4,14 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_DB: edificio_app
-      POSTGRES_USER: ${DB_USERNAME}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_USER: ${DB_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-change-me}
+    ports:
+      - "${DEV_DB_HOST_PORT:-5432}:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_dev_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d edificio_app"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-postgres} -d edificio_app"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -22,25 +24,25 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      SPRING_PROFILES_ACTIVE: prod
+      SPRING_PROFILES_ACTIVE: dev
       DB_URL: jdbc:postgresql://postgres:5432/edificio_app
-      DB_USERNAME: ${DB_USERNAME}
-      DB_PASSWORD: ${DB_PASSWORD}
-      APP_ADMIN_USERNAME: ${APP_ADMIN_USERNAME}
-      APP_ADMIN_PASSWORD: ${APP_ADMIN_PASSWORD}
-      APP_ADMIN_EMAIL: ${APP_ADMIN_EMAIL}
-      APP_JWT_SECRET: ${APP_JWT_SECRET}
-      APP_JWT_EXPIRATION_MINUTES: ${APP_JWT_EXPIRATION_MINUTES:-15}
+      DB_USERNAME: ${DB_USERNAME:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-change-me}
+      APP_ADMIN_USERNAME: ${APP_ADMIN_USERNAME:-admin}
+      APP_ADMIN_PASSWORD: ${APP_ADMIN_PASSWORD:-admin123}
+      APP_ADMIN_EMAIL: ${APP_ADMIN_EMAIL:-admin@edificio.local}
+      APP_JWT_SECRET: ${APP_JWT_SECRET:-edificio-app-development-secret-key-32}
+      APP_JWT_EXPIRATION_MINUTES: ${APP_JWT_EXPIRATION_MINUTES:-120}
       APP_REFRESH_TOKEN_EXPIRATION_DAYS: ${APP_REFRESH_TOKEN_EXPIRATION_DAYS:-7}
       APP_LOGIN_RATE_LIMIT_MAX_ATTEMPTS: ${APP_LOGIN_RATE_LIMIT_MAX_ATTEMPTS:-5}
       APP_LOGIN_RATE_LIMIT_WINDOW_MINUTES: ${APP_LOGIN_RATE_LIMIT_WINDOW_MINUTES:-1}
-      APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-}
+      APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-http://localhost:5173,http://localhost}
       APP_DEMO_ENABLED: ${APP_DEMO_ENABLED:-false}
       APP_DEMO_USERNAME: ${APP_DEMO_USERNAME:-demo}
       APP_DEMO_PASSWORD: ${APP_DEMO_PASSWORD:-}
       APP_DEMO_EMAIL: ${APP_DEMO_EMAIL:-demo@edificio.local}
     ports:
-      - "127.0.0.1:${BACKEND_HOST_PORT:-18080}:8080"
+      - "${DEV_BACKEND_HOST_PORT:-8080}:8080"
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost:8080/actuator/health || exit 1"]
       interval: 10s
@@ -48,5 +50,5 @@ services:
       retries: 5
 
 volumes:
-  postgres_data:
-    name: edificio_app_server_postgres_data
+  postgres_dev_data:
+    name: edificio_app_dev_postgres_data

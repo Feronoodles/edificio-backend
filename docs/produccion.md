@@ -1128,3 +1128,93 @@ Backups:
 - Cron de backups instalado con `bash ./scripts/install-backup-cron.sh`.
 - `crontab -l` muestra la tarea.
 - `logs/backup-postgres.log` se revisa periodicamente.
+
+## 24. Usuario demo para un VPS de prueba
+
+Para mostrar el proyecto desde un portfolio, el VPS de demo debe ser independiente del VPS de produccion. En el demo activamos una cuenta automatica con rol `DEMO`.
+
+El usuario demo:
+
+- Se crea al arrancar la aplicacion si no existe.
+- Puede consultar endpoints `GET` del API.
+- No puede crear, editar ni eliminar edificios, departamentos, residentes o pagos.
+- No debe utilizar datos reales.
+- No se crea si `APP_DEMO_ENABLED=false`.
+
+### Activar el usuario demo
+
+En el `.env` del VPS de prueba agrega:
+
+```env
+APP_DEMO_ENABLED=true
+APP_DEMO_USERNAME=demo
+APP_DEMO_PASSWORD=una-clave-publica-para-el-portfolio
+APP_DEMO_EMAIL=demo@tu-dominio.com
+```
+
+La contraseña del usuario demo puede aparecer en el portfolio porque esa cuenta debe contener unicamente datos ficticios. Nunca publiques las credenciales de `admin`, `DB_PASSWORD` o `APP_JWT_SECRET`.
+
+### Aplicar el cambio en el VPS de prueba
+
+Desde el VPS de demo:
+
+```bash
+cd ~/proyectos/edificio_app
+git pull origin main
+docker compose --env-file .env -f docker-compose.server-nginx.yml config
+docker compose --env-file .env -f docker-compose.server-nginx.yml up --build -d
+docker compose --env-file .env -f docker-compose.server-nginx.yml ps
+```
+
+Revisar el arranque del backend:
+
+```bash
+docker compose --env-file .env -f docker-compose.server-nginx.yml logs --tail=100 backend
+```
+
+No se elimina el volumen de PostgreSQL. Las migraciones y el inicializador trabajan sobre la base existente.
+
+### Verificar el usuario demo
+
+Login:
+
+```bash
+curl -i -X POST https://api-demo.tu-dominio.com/api/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"demo","password":"una-clave-publica-para-el-portfolio"}'
+```
+
+La respuesta debe incluir `accessToken` y `refreshToken`.
+
+Con el `accessToken`, una consulta debe funcionar:
+
+```bash
+curl -i https://api-demo.tu-dominio.com/api/buildings \
+  -H 'Authorization: Bearer ACCESS_TOKEN'
+```
+
+Una escritura debe ser rechazada con `403 Forbidden`:
+
+```bash
+curl -i -X POST https://api-demo.tu-dominio.com/api/buildings \
+  -H 'Authorization: Bearer ACCESS_TOKEN' \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"No debe crearse","address":"Av. Demo 123","district":"Miraflores","city":"Lima"}'
+```
+
+### Importante al cambiar la contraseña
+
+El inicializador crea la cuenta una sola vez y no reemplaza la contraseña en cada reinicio. Esto evita modificar una cuenta silenciosamente. Para una rotacion sencilla en un VPS de demo, puedes usar un nuevo `APP_DEMO_USERNAME` y `APP_DEMO_EMAIL`, o actualizar la cuenta mediante una operacion administrativa controlada.
+
+Si `APP_DEMO_USERNAME` ya existe con otro rol, el backend falla al arrancar para evitar que una cuenta administrativa sea reutilizada como demo.
+
+### Reiniciar periodicamente los datos demo
+
+La base demo debe considerarse descartable. Conserva un backup limpio y restaura periodicamente:
+
+```bash
+bash ./scripts/backup-postgres.sh
+bash ./scripts/restore-check-postgres.sh
+```
+
+La restauracion automatica sobre la base activa debe programarse con cuidado y fuera del horario de uso. Primero conviene validar manualmente el procedimiento en una copia del VPS.

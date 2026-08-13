@@ -35,6 +35,10 @@ services:
       APP_LOGIN_RATE_LIMIT_MAX_ATTEMPTS: ${APP_LOGIN_RATE_LIMIT_MAX_ATTEMPTS:-5}
       APP_LOGIN_RATE_LIMIT_WINDOW_MINUTES: ${APP_LOGIN_RATE_LIMIT_WINDOW_MINUTES:-1}
       APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-}
+      APP_DEMO_ENABLED: ${APP_DEMO_ENABLED:-false}
+      APP_DEMO_USERNAME: ${APP_DEMO_USERNAME:-demo}
+      APP_DEMO_PASSWORD: ${APP_DEMO_PASSWORD:-}
+      APP_DEMO_EMAIL: ${APP_DEMO_EMAIL:-demo@edificio.local}
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost:8080/actuator/health || exit 1"]
       interval: 10s

@@ -4,5 +4,6 @@ public enum UserRole {
     ADMIN,
     MANAGER,
     DOORMAN,
-    RESIDENT
+    RESIDENT,
+    DEMO
 }

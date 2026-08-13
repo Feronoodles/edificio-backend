@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -21,6 +22,8 @@ import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.JwtValidators;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -34,6 +37,7 @@ import com.edificio.app.security.LoginRateLimitFilter;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 
 @Configuration
@@ -58,10 +62,12 @@ public class SecurityConfig {
                                 "/actuator/health",
                                 "/actuator/health/**",
                                 "/v3/api-docs/**",
-                                "/swagger-ui/**",
-                                "/swagger-ui.html"
+                        "/swagger-ui/**",
+                        "/swagger-ui.html"
                         ).permitAll()
-                        .anyRequest().authenticated()
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/**").authenticated()
+                        .anyRequest().hasAnyRole("ADMIN", "MANAGER", "DOORMAN", "RESIDENT")
                 )
                 .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())))
                 .addFilterBefore(loginRateLimitFilter, UsernamePasswordAuthenticationFilter.class)
@@ -119,6 +125,17 @@ public class SecurityConfig {
     JwtAuthenticationConverter jwtAuthenticationConverter() {
         var converter = new JwtAuthenticationConverter();
         converter.setPrincipalClaimName("sub");
+        converter.setJwtGrantedAuthoritiesConverter(jwt -> {
+            var roles = jwt.getClaim("roles");
+            if (!(roles instanceof Collection<?> roleCollection)) {
+                return List.of();
+            }
+
+            return roleCollection.stream()
+                    .map(Object::toString)
+                    .map(role -> (GrantedAuthority) new SimpleGrantedAuthority("ROLE_" + role))
+                    .toList();
+        });
         return converter;
     }
 

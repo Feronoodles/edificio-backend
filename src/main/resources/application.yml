@@ -18,6 +18,10 @@ springdoc:
   swagger-ui:
     path: /swagger-ui.html
 
+app:
+  demo:
+    enabled: ${APP_DEMO_ENABLED:false}
+
 management:
   endpoints:
     web:
