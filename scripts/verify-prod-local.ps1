@@ -1,7 +1,6 @@
 param(
-    [string]$BaseUrl = "http://localhost",
-    [string]$ComposeFile = "docker-compose.prod.yml",
-    [switch]$SkipFrontendBuild
+    [string]$BaseUrl = "http://localhost:8080",
+    [string]$ComposeFile = "docker-compose.prod.yml"
 )
 
 $ErrorActionPreference = "Stop"
@@ -13,26 +12,12 @@ function Write-Step {
 }
 
 $root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
-$frontendPath = Join-Path $root "frontend"
 $smokeScript = Join-Path $root "scripts\smoke-prod-local.ps1"
 
 Push-Location $root
 try {
     Write-Step "Ejecutando tests del backend"
     mvn test
-
-    if (-not $SkipFrontendBuild -and (Test-Path $frontendPath)) {
-        Write-Step "Compilando frontend"
-        Push-Location $frontendPath
-        try {
-            npm.cmd run build
-        } finally {
-            Pop-Location
-        }
-    } elseif (-not $SkipFrontendBuild) {
-        Write-Step "Frontend no encontrado"
-        Write-Host "Se omite build frontend porque este repo puede ser solo backend."
-    }
 
     Write-Step "Validando docker compose"
     docker compose -f $ComposeFile config | Out-Null

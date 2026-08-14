@@ -1,5 +1,5 @@
 param(
-    [string]$BaseUrl = "http://localhost",
+    [string]$BaseUrl = "http://localhost:8080",
     [string]$ComposeFile = "docker-compose.prod.yml"
 )
 
@@ -72,8 +72,8 @@ try {
     }
     Write-Host "OK backend health: $health"
 
-    Write-Step "Revisando frontend publico"
-    Assert-StatusCode -Uri "$BaseUrl/" -ExpectedStatusCode 200
+    Write-Step "Revisando healthcheck publico del backend"
+    Assert-StatusCode -Uri "$BaseUrl/actuator/health" -ExpectedStatusCode 200
 
     Write-Step "Revisando proxy API sin token"
     Assert-StatusCode -Uri "$BaseUrl/api/buildings" -ExpectedStatusCode 401

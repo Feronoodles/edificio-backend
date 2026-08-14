@@ -8,13 +8,13 @@ La app tiene tres piezas principales:
 
 - Backend: Spring Boot, API REST, JWT, Flyway y PostgreSQL.
 - Base de datos: PostgreSQL.
-- Frontend: React + Vite servido por Nginx en el stack local de prueba.
+- Frontend: React + Vite en un repositorio separado.
 
 Backend y frontend pueden vivir en repositorios separados. En ese caso, este repo debe considerarse el repo del backend.
 
-Este repo tiene dos compose con objetivos distintos:
+Este repo tiene Compose con objetivos distintos:
 
-- `docker-compose.prod.yml`: laboratorio local, util si tienes una carpeta `frontend/` al lado para probar todo junto.
+- `docker-compose.dev.yml`: desarrollo local con PostgreSQL y backend usando el perfil `dev`.
 - `docker-compose.server.yml`: despliegue real del backend/API en VPS Linux. No levanta frontend.
 
 ## 2. Archivos importantes
@@ -27,17 +27,16 @@ src/main/resources/application.yml
 src/main/resources/application-dev.yml
 src/main/resources/application-prod.yml
 Dockerfile
-docker-compose.prod.yml
+docker-compose.dev.yml
+docker-compose.server-nginx.yml
 .env.example
 .env
 ```
 
-Frontend local de prueba, solo si existe una carpeta `frontend/` en tu maquina:
+Frontend oficial:
 
 ```text
-frontend/Dockerfile
-frontend/nginx.conf
-frontend/src/main.jsx
+https://github.com/Feronoodles/edificio-frontend
 ```
 
 Importante:
@@ -47,7 +46,8 @@ Importante:
 - `application.yml` contiene configuracion comun y activa `dev` por defecto.
 - `application-dev.yml` contiene valores comodos para desarrollo local.
 - `application-prod.yml` es la configuracion estricta para produccion.
-- `docker-compose.prod.yml` levanta PostgreSQL, backend y frontend juntos para probar.
+- El frontend no se copia dentro de este repositorio.
+- El frontend se prueba con Vite desde su repositorio separado.
 
 ## 3. Perfiles de Spring
 
@@ -99,7 +99,7 @@ APP_ADMIN_USERNAME=admin
 APP_ADMIN_PASSWORD=usa-un-password-fuerte
 APP_ADMIN_EMAIL=admin@tu-dominio.com
 APP_JWT_SECRET=usa-un-secreto-largo-generado
-APP_HTTP_PORT=80
+APP_BACKEND_HOST_PORT=8080
 ```
 
 Para generar un secreto fuerte en PowerShell:
@@ -125,48 +125,48 @@ Para que sirve:
 - Verifica que Spring pueda arrancar en ambiente de prueba.
 - Verifica que Flyway aplique migraciones en la base de datos de test.
 
-### Probar frontend
+### Probar frontend oficial
 
 ```powershell
-cd frontend
+cd ..\edificio-frontend
 npm.cmd run build
 ```
 
 Para que sirve:
 
 - Compila React/Vite para produccion.
-- Genera los archivos finales en `frontend/dist`.
+- Genera los archivos finales en `edificio-frontend/dist`.
 - Ayuda a detectar errores antes de construir la imagen Docker.
 
 Nota para Windows:
 
 Si `npm` o `npx` fallan por politicas de PowerShell, usa `npm.cmd` o `npx.cmd`.
 
-## 6. Validar Docker Compose sin levantar servicios
+## 6. Validar Docker Compose de desarrollo sin levantar servicios
 
 ```powershell
-docker compose -f docker-compose.prod.yml config
+docker compose -f docker-compose.dev.yml config
 ```
 
 Para que sirve:
 
-- Revisa que el archivo `docker-compose.prod.yml` sea valido.
+- Revisa que el archivo `docker-compose.dev.yml` sea valido.
 - Lee las variables del `.env`.
 - Muestra la configuracion final que Docker va a usar.
 - No crea contenedores ni modifica datos.
 
 Es un buen comando para revisar antes de hacer `up`.
 
-## 7. Levantar el stack local de produccion
+## 7. Levantar backend y PostgreSQL en desarrollo
 
 ```powershell
-docker compose -f docker-compose.prod.yml up --build -d
+docker compose -f docker-compose.dev.yml up --build -d
 ```
 
 Para que sirve:
 
 - `docker compose`: usa Docker Compose.
-- `-f docker-compose.prod.yml`: indica el archivo de produccion local.
+- `-f docker-compose.dev.yml`: indica el archivo de desarrollo local.
 - `up`: crea y levanta los servicios.
 - `--build`: reconstruye imagenes si hubo cambios.
 - `-d`: deja los contenedores corriendo en segundo plano.
@@ -175,12 +175,18 @@ Servicios que levanta:
 
 - `postgres`: base de datos.
 - `backend`: API Spring Boot.
-- `frontend`: Nginx sirviendo React y enviando `/api` al backend.
+- El frontend se levanta por separado desde `edificio-frontend` con Vite.
 
-Cuando termine, la app deberia estar en:
+Cuando termine, el backend deberia estar en:
 
 ```text
-http://localhost
+http://localhost:8080
+```
+
+Swagger queda disponible en:
+
+```text
+http://localhost:8080/swagger-ui.html
 ```
 
 ## 8. Ver estado de los contenedores
@@ -200,7 +206,6 @@ Estado esperado:
 ```text
 postgres   healthy
 backend    healthy
-frontend   Up
 ```
 
 ## 9. Ver logs
@@ -384,10 +389,10 @@ Luego verificar:
 docker exec edificio_app-backend-1 curl -fsS http://localhost:8080/actuator/health
 ```
 
-Y abrir:
+Y abrir Swagger:
 
 ```text
-http://localhost
+http://localhost:8080/swagger-ui.html
 ```
 
 Tambien puedes ejecutar el smoke test automatizado:
@@ -420,16 +425,9 @@ powershell -ExecutionPolicy Bypass -File .\scripts\verify-prod-local.ps1
 Para que sirve:
 
 - Ejecuta `mvn test`.
-- Ejecuta `npm.cmd run build` en `frontend/` solo si esa carpeta existe.
-- Valida `docker-compose.prod.yml`.
+- Valida `docker-compose.dev.yml` o `docker-compose.prod.yml`.
 - Reconstruye y levanta el stack con Docker.
 - Ejecuta el smoke test automatizado.
-
-Si quieres saltar el build del frontend:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\verify-prod-local.ps1 -SkipFrontendBuild
-```
 
 ## 16. Antes de subir a un servidor real
 
@@ -579,9 +577,10 @@ docker-compose.server-nginx.yml
 
 No uses Caddy en ese VPS, porque Caddy intentaria ocupar puertos `80` y `443`, que ya maneja Nginx.
 
-La diferencia con `docker-compose.prod.yml` es esta:
+La diferencia con los Compose locales es esta:
 
-- `docker-compose.prod.yml`: laboratorio local full-stack en tu maquina.
+- `docker-compose.dev.yml`: desarrollo local con PostgreSQL y backend usando el perfil `dev`.
+- `docker-compose.prod.yml`: prueba local del backend con el perfil `prod`; el frontend se ejecuta desde su repositorio separado.
 - `docker-compose.server-nginx.yml`: despliegue backend/API en un VPS Linux que ya tiene Nginx.
 - `docker-compose.server.yml`: alternativa si el proyecto usara Caddy propio.
 
@@ -667,7 +666,7 @@ En el VPS:
 docker compose --env-file .env -f docker-compose.server-nginx.yml up --build -d
 ```
 
-No uses `docker-compose.prod.yml` en el VPS si este repo no contiene frontend.
+En el VPS usa `docker-compose.server-nginx.yml`; los Compose locales no se usan como despliegue del servidor.
 
 Ver estado:
 

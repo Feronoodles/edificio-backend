@@ -182,17 +182,23 @@ Todos los endpoints de negocio requieren JWT.
 
 ## Frontend
 
-La interfaz web esta en `frontend/` y usa React + Vite. En una terminal deja corriendo el backend:
+La interfaz web vive en un repositorio separado:
 
-```bash
-mvn spring-boot:run
+```text
+https://github.com/Feronoodles/edificio-frontend
 ```
 
-En otra terminal instala dependencias y levanta el front:
+En desarrollo, primero deja corriendo PostgreSQL y el backend desde este repositorio:
 
 ```bash
-cd frontend
-npm install
+docker compose -f docker-compose.dev.yml up --build -d
+```
+
+En otra terminal, desde el repositorio frontend oficial:
+
+```bash
+cd ../edificio-frontend
+npm ci
 npm run dev
 ```
 
@@ -202,7 +208,7 @@ Vite abre por defecto en:
 http://localhost:5173
 ```
 
-El frontend usa proxy para enviar `/api/**` al backend en `http://localhost:8080`, asi que no necesitas configurar CORS durante desarrollo.
+El frontend usa proxy para enviar `/api/**` al backend en `http://localhost:8080`, asi que durante desarrollo `VITE_API_BASE_URL` debe estar vacia.
 
 ## Preparacion para produccion
 
@@ -226,7 +232,6 @@ APP_ADMIN_USERNAME=admin
 APP_ADMIN_PASSWORD=usa-un-password-fuerte
 APP_ADMIN_EMAIL=admin@tu-dominio.com
 APP_JWT_SECRET=usa-un-secreto-largo-generado
-APP_HTTP_PORT=80
 ```
 
 Para generar un secreto JWT fuerte en PowerShell:
@@ -239,32 +244,38 @@ Para probar el build antes de desplegar:
 
 ```powershell
 mvn test
-cd frontend
+cd ..\edificio-frontend
 npm.cmd run build
 ```
 
 En Windows, si `npm` o `npx` fallan por politicas de ejecucion de PowerShell, usa `npm.cmd` o `npx.cmd`.
 
-Para validar la configuracion Docker sin levantar servicios:
+Para validar la configuracion Docker de desarrollo sin levantar servicios:
 
 ```powershell
-docker compose -f docker-compose.prod.yml config
+docker compose -f docker-compose.dev.yml config
 ```
 
-Para levantar el stack de produccion localmente, crea un `.env` basado en `.env.example` y ejecuta:
+Para levantar backend y PostgreSQL localmente, crea un `.env` basado en `.env.example` y ejecuta:
 
 ```powershell
-docker compose -f docker-compose.prod.yml up --build
+docker compose -f docker-compose.dev.yml up --build -d
 ```
 
-El frontend queda publicado en `http://localhost` por defecto y Nginx envia `/api/**` al backend. El backend expone `/actuator/health` para healthchecks. Swagger queda deshabilitado en el perfil `prod`.
+El backend queda disponible en `http://localhost:8080`. Swagger esta disponible porque el Compose de desarrollo usa el perfil `dev`:
 
-Este compose usa el volumen `edificio_app_prod_postgres_data` para separar la base de datos de prueba de produccion local de cualquier PostgreSQL de desarrollo. Las variables `POSTGRES_USER` y `POSTGRES_PASSWORD` solo se aplican cuando el volumen se crea por primera vez; si cambias credenciales despues, crea un volumen nuevo o elimina el volumen anterior solo si estas seguro de que no necesitas esos datos.
+```text
+http://localhost:8080/swagger-ui.html
+```
+
+El frontend se abre por separado en `http://localhost:5173` y Vite envia `/api/**` al backend local.
+
+El Compose de desarrollo usa el volumen `edificio_app_dev_postgres_data`. Las variables `POSTGRES_USER` y `POSTGRES_PASSWORD` solo se aplican cuando el volumen se crea por primera vez; si cambias credenciales despues, crea un volumen nuevo o elimina el volumen anterior solo si estas seguro de que no necesitas esos datos.
 
 Comandos utiles:
 
 ```powershell
-docker compose -f docker-compose.prod.yml ps
-docker compose -f docker-compose.prod.yml logs backend
-docker compose -f docker-compose.prod.yml down
+docker compose -f docker-compose.dev.yml ps
+docker compose -f docker-compose.dev.yml logs backend
+docker compose -f docker-compose.dev.yml down
 ```

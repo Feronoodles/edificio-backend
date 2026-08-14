@@ -39,23 +39,13 @@ services:
       APP_DEMO_USERNAME: ${APP_DEMO_USERNAME:-demo}
       APP_DEMO_PASSWORD: ${APP_DEMO_PASSWORD:-}
       APP_DEMO_EMAIL: ${APP_DEMO_EMAIL:-demo@edificio.local}
+    ports:
+      - "${APP_BACKEND_HOST_PORT:-8080}:8080"
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost:8080/actuator/health || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
-
-  frontend:
-    build:
-      context: ./frontend
-      args:
-        VITE_API_BASE_URL: ""
-    restart: unless-stopped
-    depends_on:
-      backend:
-        condition: service_healthy
-    ports:
-      - "${APP_HTTP_PORT:-80}:80"
 
 volumes:
   postgres_data:

@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-BASE_URL="${BASE_URL:-http://localhost}"
+BASE_URL="${BASE_URL:-http://localhost:8080}"
 COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.prod.yml}"
-SKIP_FRONTEND_BUILD="${SKIP_FRONTEND_BUILD:-false}"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
@@ -16,14 +15,6 @@ cd "$ROOT_DIR"
 
 step "Ejecutando tests del backend"
 mvn test
-
-if [[ "$SKIP_FRONTEND_BUILD" != "true" && -d "$ROOT_DIR/frontend" ]]; then
-  step "Compilando frontend"
-  (cd "$ROOT_DIR/frontend" && npm run build)
-elif [[ "$SKIP_FRONTEND_BUILD" != "true" ]]; then
-  step "Frontend no encontrado"
-  echo "Se omite build frontend porque este repo puede ser solo backend."
-fi
 
 step "Validando docker compose"
 docker compose -f "$COMPOSE_FILE" config > /dev/null

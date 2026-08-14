@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-BASE_URL="${BASE_URL:-http://localhost}"
+BASE_URL="${BASE_URL:-http://localhost:8080}"
 COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.prod.yml}"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -46,8 +46,8 @@ if [[ "$health" != *'"status":"UP"'* ]]; then
 fi
 echo "OK backend health: $health"
 
-step "Revisando frontend publico"
-assert_status_code "$BASE_URL/" 200
+step "Revisando healthcheck publico del backend"
+assert_status_code "$BASE_URL/actuator/health" 200
 
 step "Revisando proxy API sin token"
 assert_status_code "$BASE_URL/api/buildings" 401

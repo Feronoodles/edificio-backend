@@ -9,9 +9,4 @@ logs/
 .env.*
 !.env.example
 !.env.server.example
-frontend/node_modules/
-frontend/dist/
-frontend/.env
-frontend/.env.*
-frontend/
 *.local
