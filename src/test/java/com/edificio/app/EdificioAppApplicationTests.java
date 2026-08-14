@@ -10,11 +10,14 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.blankOrNullString;
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -57,6 +60,39 @@ class EdificioAppApplicationTests {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.accessToken", not(blankOrNullString())))
                 .andExpect(jsonPath("$.refreshToken", not(blankOrNullString())));
+    }
+
+    @Test
+    void listEndpointsArePaginatedAndCreatedResourcesReturnLocation() throws Exception {
+        var accessToken = JsonPath.<String>read(login("198.51.100.15"), "$.accessToken");
+
+        var createdBuilding = mockMvc.perform(post("/api/buildings")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name": "Torre Paginada",
+                                  "address": "Av. Page 123",
+                                  "district": "Miraflores",
+                                  "city": "Lima"
+                                }
+                """))
+                .andExpect(status().isCreated())
+                .andExpect(header().string("Location", containsString("/api/buildings/")))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        var buildingId = JsonPath.<Integer>read(createdBuilding, "$.id");
+
+        mockMvc.perform(get("/api/buildings?page=0&size=10&sort=name,asc")
+                        .header("Authorization", "Bearer " + accessToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content", hasSize(1)))
+                .andExpect(jsonPath("$.content[0].id").value(buildingId))
+                .andExpect(jsonPath("$.page.number").value(0))
+                .andExpect(jsonPath("$.page.size").value(10))
+                .andExpect(jsonPath("$.page.totalElements").value(1));
     }
 
     @Test

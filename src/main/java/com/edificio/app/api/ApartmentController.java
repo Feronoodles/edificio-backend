@@ -5,7 +5,10 @@ import com.edificio.app.api.dto.ApartmentResponse;
 import com.edificio.app.service.ApartmentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -16,8 +19,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.util.List;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 @RestController
 @RequestMapping("/api/apartments")
@@ -27,8 +29,8 @@ public class ApartmentController {
     private final ApartmentService apartmentService;
 
     @GetMapping
-    List<ApartmentResponse> findAll(@RequestParam(required = false) Long buildingId) {
-        return apartmentService.findAll(buildingId);
+    Page<ApartmentResponse> findAll(@RequestParam(required = false) Long buildingId, Pageable pageable) {
+        return apartmentService.findAll(buildingId, pageable);
     }
 
     @GetMapping("/{id}")
@@ -37,9 +39,13 @@ public class ApartmentController {
     }
 
     @PostMapping
-    @ResponseStatus(HttpStatus.CREATED)
-    ApartmentResponse create(@Valid @RequestBody ApartmentRequest request) {
-        return apartmentService.create(request);
+    ResponseEntity<ApartmentResponse> create(@Valid @RequestBody ApartmentRequest request) {
+        var response = apartmentService.create(request);
+        var location = ServletUriComponentsBuilder.fromCurrentRequest()
+                .path("/{id}")
+                .buildAndExpand(response.id())
+                .toUri();
+        return ResponseEntity.created(location).body(response);
     }
 
     @PutMapping("/{id}")

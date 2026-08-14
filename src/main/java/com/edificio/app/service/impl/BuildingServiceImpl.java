@@ -10,11 +10,12 @@ import com.edificio.app.repository.BuildingRepository;
 import com.edificio.app.service.AuditService;
 import com.edificio.app.service.BuildingService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -26,10 +27,9 @@ public class BuildingServiceImpl implements BuildingService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<BuildingResponse> findAll() {
-        return buildingRepository.findByDeletedFalse().stream()
-                .map(BuildingResponse::from)
-                .toList();
+    public Page<BuildingResponse> findAll(Pageable pageable) {
+        return buildingRepository.findByDeletedFalse(pageable)
+                .map(BuildingResponse::from);
     }
 
     @Override

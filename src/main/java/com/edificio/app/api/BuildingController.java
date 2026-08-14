@@ -5,7 +5,10 @@ import com.edificio.app.api.dto.BuildingResponse;
 import com.edificio.app.service.BuildingService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -15,8 +18,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.util.List;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 @RestController
 @RequestMapping("/api/buildings")
@@ -26,8 +28,8 @@ public class BuildingController {
     private final BuildingService buildingService;
 
     @GetMapping
-    List<BuildingResponse> findAll() {
-        return buildingService.findAll();
+    Page<BuildingResponse> findAll(Pageable pageable) {
+        return buildingService.findAll(pageable);
     }
 
     @GetMapping("/{id}")
@@ -36,9 +38,13 @@ public class BuildingController {
     }
 
     @PostMapping
-    @ResponseStatus(HttpStatus.CREATED)
-    BuildingResponse create(@Valid @RequestBody BuildingRequest request) {
-        return buildingService.create(request);
+    ResponseEntity<BuildingResponse> create(@Valid @RequestBody BuildingRequest request) {
+        var response = buildingService.create(request);
+        var location = ServletUriComponentsBuilder.fromCurrentRequest()
+                .path("/{id}")
+                .buildAndExpand(response.id())
+                .toUri();
+        return ResponseEntity.created(location).body(response);
     }
 
     @PutMapping("/{id}")

@@ -10,10 +10,11 @@ import com.edificio.app.repository.PaymentRepository;
 import com.edificio.app.service.AuditService;
 import com.edificio.app.service.PaymentService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -28,19 +29,19 @@ public class PaymentServiceImpl implements PaymentService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<PaymentResponse> findAll(Long apartmentId, PaymentStatus status) {
-        List<Payment> payments;
-        if (apartmentId != null) {
-            payments = paymentRepository.findByApartmentIdAndDeletedFalse(apartmentId);
+    public Page<PaymentResponse> findAll(Long apartmentId, PaymentStatus status, Pageable pageable) {
+        Page<Payment> payments;
+        if (apartmentId != null && status != null) {
+            payments = paymentRepository.findByApartmentIdAndStatusAndDeletedFalse(apartmentId, status, pageable);
+        } else if (apartmentId != null) {
+            payments = paymentRepository.findByApartmentIdAndDeletedFalse(apartmentId, pageable);
         } else if (status != null) {
-            payments = paymentRepository.findByStatusAndDeletedFalse(status);
+            payments = paymentRepository.findByStatusAndDeletedFalse(status, pageable);
         } else {
-            payments = paymentRepository.findByDeletedFalse();
+            payments = paymentRepository.findByDeletedFalse(pageable);
         }
 
-        return payments.stream()
-                .map(PaymentResponse::from)
-                .toList();
+        return payments.map(PaymentResponse::from);
     }
 
     @Override

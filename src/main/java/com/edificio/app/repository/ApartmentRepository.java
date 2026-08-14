@@ -1,15 +1,15 @@
 package com.edificio.app.repository;
 
 import com.edificio.app.domain.Apartment;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
-
-import java.util.List;
 
 public interface ApartmentRepository extends JpaRepository<Apartment, Long> {
 
-    List<Apartment> findByDeletedFalse();
+    Page<Apartment> findByDeletedFalse(Pageable pageable);
 
-    List<Apartment> findByBuildingIdAndDeletedFalse(Long buildingId);
+    Page<Apartment> findByBuildingIdAndDeletedFalse(Long buildingId, Pageable pageable);
 
     long countByBuildingIdAndDeletedFalse(Long buildingId);
 }

@@ -2,12 +2,12 @@ package com.edificio.app.service;
 
 import com.edificio.app.api.dto.ResidentRequest;
 import com.edificio.app.api.dto.ResidentResponse;
-
-import java.util.List;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 public interface ResidentService {
 
-    List<ResidentResponse> findAll(Long apartmentId);
+    Page<ResidentResponse> findAll(Long apartmentId, Pageable pageable);
 
     ResidentResponse findById(Long id);
 

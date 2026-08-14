@@ -9,10 +9,11 @@ import com.edificio.app.repository.ResidentRepository;
 import com.edificio.app.service.AuditService;
 import com.edificio.app.service.ResidentService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
 import java.time.Instant;
 
 @Service
@@ -25,14 +26,12 @@ public class ResidentServiceImpl implements ResidentService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<ResidentResponse> findAll(Long apartmentId) {
+    public Page<ResidentResponse> findAll(Long apartmentId, Pageable pageable) {
         var residents = apartmentId == null
-                ? residentRepository.findByDeletedFalse()
-                : residentRepository.findByApartmentIdAndDeletedFalse(apartmentId);
+                ? residentRepository.findByDeletedFalse(pageable)
+                : residentRepository.findByApartmentIdAndDeletedFalse(apartmentId, pageable);
 
-        return residents.stream()
-                .map(ResidentResponse::from)
-                .toList();
+        return residents.map(ResidentResponse::from);
     }
 
     @Override

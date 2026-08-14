@@ -12,10 +12,11 @@ import com.edificio.app.repository.ResidentRepository;
 import com.edificio.app.service.AuditService;
 import com.edificio.app.service.ApartmentService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
 import java.time.Instant;
 
 @Service
@@ -30,14 +31,12 @@ public class ApartmentServiceImpl implements ApartmentService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<ApartmentResponse> findAll(Long buildingId) {
+    public Page<ApartmentResponse> findAll(Long buildingId, Pageable pageable) {
         var apartments = buildingId == null
-                ? apartmentRepository.findByDeletedFalse()
-                : apartmentRepository.findByBuildingIdAndDeletedFalse(buildingId);
+                ? apartmentRepository.findByDeletedFalse(pageable)
+                : apartmentRepository.findByBuildingIdAndDeletedFalse(buildingId, pageable);
 
-        return apartments.stream()
-                .map(ApartmentResponse::from)
-                .toList();
+        return apartments.map(ApartmentResponse::from);
     }
 
     @Override

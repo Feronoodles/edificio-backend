@@ -3,12 +3,12 @@ package com.edificio.app.service;
 import com.edificio.app.api.dto.PaymentRequest;
 import com.edificio.app.api.dto.PaymentResponse;
 import com.edificio.app.domain.PaymentStatus;
-
-import java.util.List;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 public interface PaymentService {
 
-    List<PaymentResponse> findAll(Long apartmentId, PaymentStatus status);
+    Page<PaymentResponse> findAll(Long apartmentId, PaymentStatus status, Pageable pageable);
 
     PaymentResponse findById(Long id);
 
